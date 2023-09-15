@@ -27,6 +27,7 @@ public class SodasApiConfig {
                         .bearerFormat("JWT"));
 
         return new OpenAPI()
+                .addServersItem(new Server().url("/"))
                 .addSecurityItem(securityRequirement)
                 .components(components)
                 .info(info);
