@@ -35,7 +35,7 @@ public class RGWService {
     private SodasRgwAdmin sodasRgwAdmin;
     private final DSService dsService;
 
-    private synchronized RgwAdmin getRgwAdmin() {
+    private RgwAdmin getRgwAdmin() {
         if (this.rgwAdmin == null) {
             rgwAdmin = new RgwAdminBuilder().accessKey(objectStorageConfig.getRgwAdminAccess())
                     .secretKey(objectStorageConfig.getRgwAdminSecret())
@@ -45,6 +45,18 @@ public class RGWService {
         return rgwAdmin;
     }
 
+    public void linkBucket(){
+        RgwAdmin rgwAdmin = getRgwAdmin();
+
+        System.out.printf(rgwAdmin.getUsage().toString());
+
+        String uid = "sodas_dev_access";
+        String bucketName = "test";
+
+        String bucketId = rgwAdmin.getBucketInfo(uid).get().getId();
+        rgwAdmin.linkBucket(bucketName, bucketId, uid);
+    }
+
     private SodasRgwAdmin getSodasRgwAdmin(){
         if(this.sodasRgwAdmin == null){
             sodasRgwAdmin = new SodasRgwAdmin(objectStorageConfig);
@@ -52,14 +64,14 @@ public class RGWService {
         return sodasRgwAdmin;
     }
 
-
     public List<SBucket> getBuckets(S3Credential key) {
         AmazonS3 conn = getClient(key);
         List<Bucket> buckets = conn.listBuckets();
+
         List<SBucket> bucketList = new ArrayList<>();
 
-        for (Bucket mybucket : buckets) {
-            bucketList.add(new SBucket(mybucket.getName(), mybucket.getCreationDate()));
+        for(Bucket myBucket : buckets){
+            bucketList.add(new SBucket(myBucket.getName(), myBucket.getCreationDate()));
         }
         return bucketList;
     }
@@ -95,7 +107,7 @@ public class RGWService {
         return newBucket;
     }
 
-    public void deleteBucket(S3Credential key, String bucketName) {
+    public void removeBucket(S3Credential key, String bucketName) {
         AmazonS3 conn = getClient(key);
 
         List<BObject> objectList = getObjects(key, bucketName);
@@ -107,13 +119,13 @@ public class RGWService {
         conn.deleteBucket(bucketName);
     }
 
-    public void deleteObject(S3Credential key, String bucketName, String object) {
+    public void removeObject(S3Credential key, String bucketName, String object) {
         AmazonS3 conn = getClient(key);
 
         conn.deleteObject(bucketName, object);
     }
 
-    private synchronized AmazonS3 getClient(S3Credential key) {
+    private AmazonS3 getClient(S3Credential key) {
         String accessKey = key.getAccessKey();
         String secretKey = key.getSecretKey();
 
@@ -204,12 +216,7 @@ public class RGWService {
 
     // TODO: 2023.7.22 Keycloak과 연동해 관리자 확인하는 코드 추가해야 함.
     public boolean validAccess(Map<String, Object> userInfo, String access) {
-        if(Objects.equals(((ArrayList<String>) userInfo.get("group")).get(0), access)) {
-            return true;
-        }
-        else{
-            return false;
-        }
+        return Objects.equals(((ArrayList<String>) userInfo.get("group")).get(0), access);
     }
 
     public URL objectDownUrl(S3Credential key, String bucketName, String object) {
@@ -235,12 +242,10 @@ public class RGWService {
         return individualBucketQuota;
     }
 
-    public void getBucketInfo(String bucketName){
+    public BucketInfo getBucketInfo(String bucketName){
         RgwAdmin rgwAdmin = getRgwAdmin();
 
-        long usage =  rgwAdmin.getBucketInfo(bucketName).get().getUsage().getRgwMain().getSize();
-
-        System.out.println(usage);
+        return rgwAdmin.getBucketInfo(bucketName).get();
     }
 
 
@@ -329,7 +334,7 @@ public class RGWService {
         return userInfoMap;
     }
 
-    public void deleteSubUser(String uid, String subUid, Key key) {
+    public void removeSubUser(String uid, String subUid, Key key) {
         RgwAdmin rgwAdmin = getRgwAdmin();
         rgwAdmin.removeS3CredentialFromSubUser(uid, subUid, key.getAccessKey());
         rgwAdmin.removeSubUser(uid, subUid);
@@ -354,7 +359,7 @@ public class RGWService {
         return rgwAdmin.createS3Credential(uid);
     }
 
-    public void deleteS3Credential(String uid, String accessKey){
+    public void removeS3Credential(String uid, String accessKey){
         RgwAdmin rgwAdmin = getRgwAdmin();
         rgwAdmin.removeS3Credential(uid, accessKey);
     }
@@ -371,10 +376,10 @@ public class RGWService {
         return sodasRgwAdmin.getUserRateLimit(uid);
     }
 
-    public List<String> getUserRateLimitList(List<String> uidList){
-        List<String> response = new ArrayList<>();
+    public Map<String, String> getUserRateLimitList(List<String> uidList){
+        Map<String, String> response = new HashMap<>();
         for (String uid : uidList){
-            response.add(getUserRateLimit(uid));
+            response.put(uid, getUserRateLimit(uid));
         }
         return response;
     }
@@ -510,7 +515,7 @@ public class RGWService {
         return rgwAdmin.createUser(user.getUid(), userParameters);
     }
 
-    public Map<String, String> deleteUser(String userId) {
+    public Map<String, String> removeUser(String userId) {
         RgwAdmin rgwAdmin = getRgwAdmin();
 
         rgwAdmin.removeUser(userId);
