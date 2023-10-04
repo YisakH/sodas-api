@@ -96,14 +96,6 @@ public class RGWService {
         AmazonS3 conn = getClient(key);
         Bucket newBucket = conn.createBucket(bucketName);
 
-        SQuota bucketQuota = new SQuota("true", "100", "100000000", "bucket");
-        SQuota userQuota = new SQuota("true", "100", "100000000", "user");
-        dsService.quotaConfigOperation(conn.getS3AccountOwner().getId(), bucketQuota);
-        dsService.quotaConfigOperation(conn.getS3AccountOwner().getId(), userQuota);
-
-        SQuota temp = new SQuota("true", "2", "1", "bucket");
-        setIndividualBucketQuota(conn.getS3AccountOwner().getId(), bucketName, temp);
-
         return newBucket;
     }
 
@@ -249,10 +241,10 @@ public class RGWService {
     public SQuota setIndividualBucketQuota(String uid, String bucketName, SQuota quota){
         RgwAdmin rgwAdmin = getRgwAdmin();
 
-        if(rgwAdmin.getUserQuota(uid).get().getMaxSizeKb() >= Long.parseLong(quota.getMax_size_kb())
-            && rgwAdmin.getUserQuota(uid).get().getMaxObjects() >= Long.parseLong(quota.getMax_objects())){
-            rgwAdmin.setIndividualBucketQuota(uid, bucketName, Long.parseLong(quota.getMax_objects()), Long.parseLong(quota.getMax_size_kb()));
-        }
+        //if(rgwAdmin.getUserQuota(uid).get().getMaxSizeKb() >= Long.parseLong(quota.getMax_size_kb())
+        //    && rgwAdmin.getUserQuota(uid).get().getMaxObjects() >= Long.parseLong(quota.getMax_objects())){
+        rgwAdmin.setIndividualBucketQuota(uid, bucketName, Long.parseLong(quota.getMax_objects()), Long.parseLong(quota.getMax_size_kb()));
+        //}
 
         return quota;
     }

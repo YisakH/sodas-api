@@ -214,7 +214,7 @@ public class RGWController {
         Quota 반환 하기
         벼킷 각각의 크기 받아오기
      */
-    @Operation(summary = "버킷 크기 조회", description = "버킷 이름을 입력하여 해당 버킷의 크기를 조회합니다", responses = {
+    @Operation(summary = "버킷 크기 조회", description = "버킷 이름을 입력하여 특정 버킷의 크기를 조회합니다", responses = {
             @ApiResponse(responseCode = "200", description = "버킷 크기 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SQuota.class))),
             @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
     @GetMapping("/permission/quota/bucket/size/{bucketName}/get")
@@ -225,7 +225,7 @@ public class RGWController {
     /*
         버킷 각각의 크기 설정하기
      */
-    @Operation(summary = "버킷 크기 설정", description = "유저 아이디와 버킷 이름, 할당량을 입력하여 해당 버킷의 크기를 설정합니다", responses = {
+    @Operation(summary = "버킷 크기 설정", description = "유저 아이디와 버킷 이름, 할당량을 입력하여 특정 버킷의 크기를 설정합니다", responses = {
             @ApiResponse(responseCode = "200", description = "버킷 크기 설정 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SQuota.class))),
             @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
     @PostMapping("/permission/quota/bucket/size/{bucketName}/{uid}/update")

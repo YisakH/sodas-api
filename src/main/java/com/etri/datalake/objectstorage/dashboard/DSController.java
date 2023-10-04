@@ -96,7 +96,7 @@ public class DSController {
         Permission-Quota-Delete
         쿼타 사용 금지
      */
-    @Operation(summary = "유저 쿼타 사용 금지 설정", description = "유저 id를 입력하여 유저의 쿼타의 사용을 금지합니다", responses = {
+    @Operation(summary = "유저 쿼타 삭제", description = "유저 id를 입력하여 유저의 쿼타를 삭제합니다", responses = {
             @ApiResponse(responseCode = "200", description = "유저 쿼타 사용 금지 설정 성공"),
             @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
     @PostMapping("/permission/quota/user/{uid}/size/remove")
@@ -110,7 +110,7 @@ public class DSController {
         }
     }
 
-    @Operation(summary = "버킷 쿼타 사용 금지 설정", description = "유저 id를 입력하여 유저의 쿼타의 사용을 금지합니다", responses = {
+    @Operation(summary = "버킷 쿼타 삭제", description = "유저 id를 입력하여 버킷 쿼타를 삭제합니다", responses = {
             @ApiResponse(responseCode = "200", description = "유저 쿼타 사용 금지 설정 성공"),
             @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
     @PostMapping("/permission/quota/bucket/{uid}/size/remove")
