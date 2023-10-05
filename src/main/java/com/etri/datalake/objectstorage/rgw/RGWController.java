@@ -4,6 +4,7 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.Bucket;
 import com.etri.datalake.auth.GetIdFromToken;
 import com.etri.datalake.objectstorage.constants.*;
+import com.etri.datalake.objectstorage.dashboard.DSService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -20,15 +21,110 @@ import org.twonote.rgwadmin4j.model.*;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-@Tag(name = "RGW Controller", description = "RGW 컨트롤러 API 문서입니다")
+@Tag(name = "Object stroage", description = "Object storage API 문서입니다")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/datalake/object-storage")
 public class RGWController {
+    private final DSService dsService;
     private final RGWService rgwService;
     private final String PF_ADMIN = "/organization/default_org/roles/platform_admin";
+
+    @Operation(summary = "유저 쿼타 정보 출력", description = "유저 id를 입력하여 유저의 쿼타 정보를 출력합니다", responses = {
+            @ApiResponse(responseCode = "200", description = "유저 쿼타 정보 출력 성공", content = @Content(mediaType = "application/json",schema = @Schema(implementation = SQuota.class))),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
+    @GetMapping("/quota/user/size/{uid}/get")
+    public ResponseEntity<List<HashMap>> userQuotaInfo(@Parameter(name = "uid", description = "유저 id") @PathVariable("uid") String userName, @GetIdFromToken Map<String, Object> userInfo){
+        if(rgwService.validAccess(userInfo, PF_ADMIN)){
+            return ResponseEntity.status(HttpStatus.OK).body(dsService.userQoutaInfo(userName));
+        }else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    @Operation(summary = "유저 버킷 쿼타 정보 출력", description = "유저 id를 입력하여 유저의 버킷 쿼타 정보를 출력합니다", responses = {
+            @ApiResponse(responseCode = "200", description = "유저 버킷 쿼타 정보 출력 성공", content = @Content(mediaType = "application/json",schema = @Schema(implementation = SQuota.class))),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
+    @GetMapping("/quota/bucket/size/{uid}/get")
+    public ResponseEntity<List<HashMap>> bucketQuotaInfo(@Parameter(name = "uid", description = "유저 id") @PathVariable("uid") String userName, @GetIdFromToken Map<String, Object> userInfo){
+        if(rgwService.validAccess(userInfo, PF_ADMIN)){
+            return ResponseEntity.status(HttpStatus.OK).body(dsService.bucketQoutaInfo(userName));
+        }else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    /*
+        Permission-Quota-Create, Update
+        유저 쿼타 설정
+     */
+    @Operation(summary = "유저 쿼타 설정", description = "유저 id와 쿼타를 입력하여 유저의 쿼타를 설정합니다", responses = {
+            @ApiResponse(responseCode = "200", description = "유저 쿼타 설정 성공", content = @Content(mediaType = "application/json")),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
+    @PostMapping("/permission/quota/user/{uid}/size/update")
+    public ResponseEntity userQuotaConfig(@Parameter(name = "uid", description = "유저 id")@PathVariable("uid") String userName,
+                                          @RequestBody SQuota quota, @GetIdFromToken Map<String, Object> userInfo){
+
+        if(rgwService.validAccess(userInfo, PF_ADMIN)){
+            quota.setQuota_type("user");
+            dsService.qoutaConfig(userName, quota);
+            return ResponseEntity.status(HttpStatus.OK).body("UserQuota configuration success!");
+        }else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+    }
+
+    @Operation(summary = "버킷 쿼타 설정", description = "유저 id와 쿼타를 입력하여 버킷의 쿼타를 설정합니다", responses = {
+            @ApiResponse(responseCode = "200", description = "버킷 쿼타 설정 성공", content = @Content(mediaType = "application/json",schema = @Schema(implementation = SQuota.class))),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
+    @PostMapping("/permission/quota/bucket/{uid}/size/update")
+    public ResponseEntity bucketQuotaConfig(@Parameter(name = "uid", description = "유저 id")@PathVariable("uid") String userName,
+                                            @RequestBody SQuota quota, @GetIdFromToken Map<String, Object> userInfo){
+
+        if(rgwService.validAccess(userInfo, PF_ADMIN)){
+            quota.setQuota_type("bucket");
+            dsService.qoutaConfig(userName, quota);
+            return ResponseEntity.status(HttpStatus.OK).body("BucketQuota configuration success!");
+        }else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    /*
+        Permission-Quota-Delete
+        쿼타 사용 금지
+     */
+    @Operation(summary = "유저 쿼타 사용 금지 설정", description = "유저 id를 입력하여 유저의 쿼타의 사용을 금지합니다", responses = {
+            @ApiResponse(responseCode = "200", description = "유저 쿼타 사용 금지 설정 성공"),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
+    @PostMapping("/permission/quota/user/{uid}/size/remove")
+    public ResponseEntity<String> userQuotaDisable(@Parameter(name = "uid", description = "유저 id")@PathVariable("uid") String userName,
+                                                   @RequestBody Map<String, String> body, @GetIdFromToken Map<String, Object> userInfo){
+        if(rgwService.validAccess(userInfo, PF_ADMIN)){
+            dsService.qoutaDisable(userName, body.get("user"));
+            return ResponseEntity.status(HttpStatus.OK).body("UserQuota remove success!");
+        }else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    @Operation(summary = "버킷 쿼타 사용 금지 설정", description = "유저 id를 입력하여 유저의 쿼타의 사용을 금지합니다", responses = {
+            @ApiResponse(responseCode = "200", description = "유저 쿼타 사용 금지 설정 성공"),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
+    @PostMapping("/permission/quota/bucket/{uid}/size/remove")
+    public ResponseEntity<String> bucketQuotaDisable(@Parameter(name = "uid", description = "유저 id")@PathVariable("uid") String userName,
+                                                     @RequestBody Map<String, String> body, @GetIdFromToken Map<String, Object> userInfo){
+        if(rgwService.validAccess(userInfo, PF_ADMIN)){
+            dsService.qoutaDisable(userName, body.get("bucket"));
+            return ResponseEntity.status(HttpStatus.OK).body("BucketQuota remove success!");
+        }else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
 
     /*
         Permission - Data - List
@@ -77,7 +173,7 @@ public class RGWController {
             @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
     @PostMapping("/bucket/{bucketName}/remove")
     public ResponseEntity<?> removeBucket(@GetIdFromToken Map<String, Object> userInfo,
-                             @Parameter(name = "bucketName", description = "버킷 이름") @PathVariable String bucketName) {
+                                          @Parameter(name = "bucketName", description = "버킷 이름") @PathVariable String bucketName) {
         rgwService.removeBucket((S3Credential) userInfo.get("credential"), bucketName);
         return ResponseEntity.ok().build();
     }
@@ -103,8 +199,8 @@ public class RGWController {
             @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
     @PostMapping("/data/{bucketName}/{objectKey}/remove")
     public ResponseEntity<?> removeObject(@GetIdFromToken Map<String, Object> userInfo,
-                             @Parameter(name = "bucketName", description = "버킷 이름") @PathVariable String bucketName,
-                             @Parameter(name = "objectKey", description = "오브젝트 키") @PathVariable String objectKey) {
+                                          @Parameter(name = "bucketName", description = "버킷 이름") @PathVariable String bucketName,
+                                          @Parameter(name = "objectKey", description = "오브젝트 키") @PathVariable String objectKey) {
         rgwService.removeObject((S3Credential) userInfo.get("credential"), bucketName, objectKey);
         return ResponseEntity.ok().build();
     }
@@ -214,7 +310,7 @@ public class RGWController {
         Quota 반환 하기
         벼킷 각각의 크기 받아오기
      */
-    @Operation(summary = "버킷 크기 조회", description = "버킷 이름을 입력하여 특정 버킷의 크기를 조회합니다", responses = {
+    @Operation(summary = "버킷 크기 조회", description = "버킷 이름을 입력하여 해당 버킷의 크기를 조회합니다", responses = {
             @ApiResponse(responseCode = "200", description = "버킷 크기 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SQuota.class))),
             @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
     @GetMapping("/permission/quota/bucket/size/{bucketName}/get")
@@ -225,7 +321,7 @@ public class RGWController {
     /*
         버킷 각각의 크기 설정하기
      */
-    @Operation(summary = "버킷 크기 설정", description = "유저 아이디와 버킷 이름, 할당량을 입력하여 특정 버킷의 크기를 설정합니다", responses = {
+    @Operation(summary = "버킷 크기 설정", description = "유저 아이디와 버킷 이름, 할당량을 입력하여 해당 버킷의 크기를 설정합니다", responses = {
             @ApiResponse(responseCode = "200", description = "버킷 크기 설정 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SQuota.class))),
             @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
     @PostMapping("/permission/quota/bucket/size/{bucketName}/{uid}/update")
@@ -251,7 +347,7 @@ public class RGWController {
     @PostMapping("/credential/user/sub-user/create")
     public ResponseEntity<List<SubUser>> createSubUser(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "서브 유저") @RequestBody SSubUser subUser,
                                                        @GetIdFromToken Map<String, Object> userInfo) {
-            return ResponseEntity.ok(rgwService.createSubUser((String)userInfo.get("userId"), subUser));
+        return ResponseEntity.ok(rgwService.createSubUser((String)userInfo.get("userId"), subUser));
     }
 
     /*
@@ -281,8 +377,8 @@ public class RGWController {
     public ResponseEntity<?> setSubUserPermission(@Parameter(name = "subUid", description = "서브유저 아이디") @PathVariable("subUid") String subUid,
                                                   @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "권한") @RequestBody String permission,
                                                   @GetIdFromToken Map<String, Object> userInfo) {
-            rgwService.setSubUserPermission((String)userInfo.get("userId"), subUid, permission);
-            return ResponseEntity.ok("Subuser permission update successfully.");
+        rgwService.setSubUserPermission((String)userInfo.get("userId"), subUid, permission);
+        return ResponseEntity.ok("Subuser permission update successfully.");
     }
 
     /*
@@ -293,10 +389,10 @@ public class RGWController {
             @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
     @PostMapping("/credential/user/sub-user/{subUid}/remove")
     public ResponseEntity<Object> removeSubUser(@Parameter(name = "subUid", description = "서브유저 아이디") @PathVariable("subUid") String subUid,
-                              @Parameter(name = "key", description = "해당 키 값") @RequestBody Key key,
-                              @GetIdFromToken Map<String, Object> userInfo) {
-            rgwService.removeSubUser((String)userInfo.get("userId"), subUid, key);
-            return ResponseEntity.ok("Subuser removed.");
+                                                @Parameter(name = "key", description = "해당 키 값") @RequestBody Key key,
+                                                @GetIdFromToken Map<String, Object> userInfo) {
+        rgwService.removeSubUser((String)userInfo.get("userId"), subUid, key);
+        return ResponseEntity.ok("Subuser removed.");
     }
 
     /*
@@ -372,7 +468,7 @@ public class RGWController {
             @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
     @GetMapping("/credential/user/sub-user/list")
     public ResponseEntity<Map<String, String>> subUserList(@GetIdFromToken Map<String, Object> userInfo) {
-            return ResponseEntity.ok(rgwService.subUserList((String) userInfo.get("userId")));
+        return ResponseEntity.ok(rgwService.subUserList((String) userInfo.get("userId")));
     }
 
     @Operation(summary = "유저 삭제", description = "유저 아이디를 입력받아 유저를 삭제합니다", responses = {
