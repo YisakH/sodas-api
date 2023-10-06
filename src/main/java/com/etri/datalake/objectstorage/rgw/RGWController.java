@@ -21,6 +21,7 @@ import org.twonote.rgwadmin4j.model.*;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +38,7 @@ public class RGWController {
             @ApiResponse(responseCode = "200", description = "유저 쿼타 정보 출력 성공", content = @Content(mediaType = "application/json",schema = @Schema(implementation = SQuota.class))),
             @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
     @GetMapping("/quota/user/size/{uid}/get")
-    public ResponseEntity<List<HashMap>> userQuotaInfo(@Parameter(name = "uid", description = "유저 id") @PathVariable("uid") String userName, @GetIdFromToken Map<String, Object> userInfo){
+    public ResponseEntity<?> userQuotaInfo(@Parameter(name = "uid", description = "유저 id") @PathVariable("uid") String userName, @GetIdFromToken Map<String, Object> userInfo){
         if(rgwService.validAccess(userInfo, PF_ADMIN)){
             return ResponseEntity.status(HttpStatus.OK).body(dsService.userQoutaInfo(userName));
         }else {
@@ -70,12 +71,49 @@ public class RGWController {
 
         if(rgwService.validAccess(userInfo, PF_ADMIN)){
             quota.setQuota_type("user");
-            dsService.qoutaConfig(userName, quota);
+            dsService.quotaConfig(userName, quota);
             return ResponseEntity.status(HttpStatus.OK).body("UserQuota configuration success!");
         }else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+    }
 
+    @Operation(summary = "여러 유저 쿼타 조회", description = "유저 id의 배열을 입력하여 유저의 쿼타를 조회합니다", responses = {
+            @ApiResponse(responseCode = "200", description = "유저 쿼타 조회 성공", content = @Content(mediaType = "application/json")),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
+    @GetMapping("/permission/quota/users/size/get")
+    public ResponseEntity<?> getUserQuotaConfigList(@Parameter(name = "userName", description = "유저 아이디 리스트") @RequestParam(name="userName") List<String> userList,
+                                                 @GetIdFromToken Map<String, Object> userInfo){
+        if(rgwService.validAccess(userInfo, PF_ADMIN)){
+            HashMap<String, HashMap<String, Object>> result = new HashMap<>();
+            for (String userName: userList){
+                result.put(userName, dsService.userQoutaInfo(userName));
+            }
+            return ResponseEntity.status(HttpStatus.OK).body(result);
+        }else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    @Operation(summary = "여러 유저 쿼타 설정", description = "유저 id와 쿼타의 배열을 입력하여 유저의 쿼타를 설정합니다", responses = {
+            @ApiResponse(responseCode = "200", description = "유저 쿼타 설정 성공", content = @Content(mediaType = "application/json")),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 리소스 접근")})
+    @PostMapping("/permission/quota/users/size/update")
+    public ResponseEntity setUserQuotaConfigList(
+            @Parameter(name = "userQuotaList", description = "유저 쿼타 리스트", schema = @Schema( type = "object", example = "{\"user1\": {\"enabled\": \"true/false\",\"max_objects\": \"integer\",\"max_size_kb\": \"integer\",\"quota_type\": \"user\"}, \"user2\": {\"enabled\": \"true/false\",\"max_objects\": \"integer\",\"max_size_kb\": \"integer\",\"quota_type\": \"user\"}}"))
+            @RequestBody Map<String, SQuota> userQuotaList,
+            @GetIdFromToken Map<String, Object> userInfo)
+    {
+        if(rgwService.validAccess(userInfo, PF_ADMIN)){
+            for (String userName: userQuotaList.keySet()){
+                SQuota quota = userQuotaList.get(userName);
+                quota.setQuota_type("user");
+                dsService.quotaConfig(userName, quota);
+            }
+            return ResponseEntity.status(HttpStatus.OK).body("UserQuota configuration success!");
+        }else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
     }
 
     @Operation(summary = "버킷 쿼타 설정", description = "유저 id와 쿼타를 입력하여 버킷의 쿼타를 설정합니다", responses = {
@@ -87,7 +125,7 @@ public class RGWController {
 
         if(rgwService.validAccess(userInfo, PF_ADMIN)){
             quota.setQuota_type("bucket");
-            dsService.qoutaConfig(userName, quota);
+            dsService.quotaConfig(userName, quota);
             return ResponseEntity.status(HttpStatus.OK).body("BucketQuota configuration success!");
         }else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -105,7 +143,7 @@ public class RGWController {
     public ResponseEntity<String> userQuotaDisable(@Parameter(name = "uid", description = "유저 id")@PathVariable("uid") String userName,
                                                    @RequestBody Map<String, String> body, @GetIdFromToken Map<String, Object> userInfo){
         if(rgwService.validAccess(userInfo, PF_ADMIN)){
-            dsService.qoutaDisable(userName, body.get("user"));
+            dsService.quotaDisable(userName, body.get("user"));
             return ResponseEntity.status(HttpStatus.OK).body("UserQuota remove success!");
         }else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -119,7 +157,7 @@ public class RGWController {
     public ResponseEntity<String> bucketQuotaDisable(@Parameter(name = "uid", description = "유저 id")@PathVariable("uid") String userName,
                                                      @RequestBody Map<String, String> body, @GetIdFromToken Map<String, Object> userInfo){
         if(rgwService.validAccess(userInfo, PF_ADMIN)){
-            dsService.qoutaDisable(userName, body.get("bucket"));
+            dsService.quotaDisable(userName, body.get("bucket"));
             return ResponseEntity.status(HttpStatus.OK).body("BucketQuota remove success!");
         }else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
