@@ -257,14 +257,25 @@ public class RGWService {
             Optional<BucketInfo> bucketInfo = rgwAdmin.getBucketInfo(bucketName);
             BucketInfo bucketInfo1 = bucketInfo.get();
 
-            if(bucketInfo1.getUsage().getRgwMain() != null) {
-                double usage = (((double) bucketInfo1.getUsage().getRgwMain().getSize_actual() / (bucketInfo1.getBucketQuota().getMaxSizeKb() * 1024)) * 100);
-                result.put("result", Double.toString(usage) + "%");
+            long sizeActual, maxSizeKB;
 
-                return result;
+            if(bucketInfo1.getUsage().getRgwMain() != null) {
+                sizeActual = bucketInfo1.getUsage().getRgwMain().getSize_actual();
+            } else {
+                sizeActual = 0;
             }
+            maxSizeKB = bucketInfo1.getBucketQuota().getMaxSizeKb();
+
+            if(maxSizeKB != 0){
+                double usage = ((sizeActual / (maxSizeKB * 1024.0)) * 100);
+                result.put("result", Double.toString(usage) + "%");
+            } else {
+                result.put("result", "-1%");
+            }
+            return result;
+            //}
         }
-        result.put("result", "-1%");
+        result.put("result", "error");
         return result;
     }
 
@@ -274,7 +285,6 @@ public class RGWService {
         Map<String, String> quotaUtilizationMap = new HashMap<>();
 
         for(SBucket sBucket : bucketList){
-            System.out.println(sBucket.getBucketName());
             quotaUtilizationMap.put(sBucket.getBucketName(), quotaUtilizationInfo(sBucket.getBucketName()).get("result"));
         }
 
