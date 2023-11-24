@@ -249,40 +249,51 @@ public class RGWService {
         return quota;
     }
 
-    public Map<String, String> quotaUtilizationInfo(String bucketName) {
+    public Map<String, Object> quotaUtilizationInfo(String bucketName) {
         RgwAdmin rgwAdmin = getRgwAdmin();
-        Map<String, String> result = new HashMap<>();
+        Map<String, Object> result = new HashMap<>();
+        HashMap<String, String> list = new HashMap<>();
 
         if(rgwAdmin.getBucketInfo(bucketName).isPresent()) {
             Optional<BucketInfo> bucketInfo = rgwAdmin.getBucketInfo(bucketName);
             BucketInfo bucketInfo1 = bucketInfo.get();
 
-            long sizeActual, maxSizeKB;
+            long maxSizeKB;
+            double sizeActualGB, sizeUtilizedGB;
 
             if(bucketInfo1.getUsage().getRgwMain() != null) {
-                sizeActual = bucketInfo1.getUsage().getRgwMain().getSize_actual();
+                sizeActualGB = bucketInfo1.getUsage().getRgwMain().getSize_kb_actual() / 1024.0 / 1024.0;
+                sizeUtilizedGB = bucketInfo1.getUsage().getRgwMain().getSize_kb_utilized() / 1024.0 / 1024.0;
             } else {
-                sizeActual = 0;
+                sizeActualGB = 0;
+                sizeUtilizedGB = 0;
             }
             maxSizeKB = bucketInfo1.getBucketQuota().getMaxSizeKb();
 
             if(maxSizeKB != 0){
-                double usage = ((sizeActual / (maxSizeKB * 1024.0)) * 100);
-                result.put("result", Double.toString(usage) + "%");
+                double usage = ((sizeActualGB / (maxSizeKB / 1024)) * 100);
+                list.put("sizeActualGB", Double.toString(sizeActualGB));
+                list.put("sizeUtilizedGB", Double.toString(sizeUtilizedGB));
+                list.put("usage", Double.toString(usage) + "%" );
+
+                result.put("result", list);
             } else {
-                result.put("result", "-1%");
+                list.put("sizeActualGB", Double.toString(sizeActualGB));
+                list.put("sizeUtilizedGB", Double.toString(sizeUtilizedGB));
+                list.put("usage", Double.toString(-1) + "%" );
+
+                result.put("result", list);
             }
             return result;
-            //}
         }
         result.put("result", "error");
         return result;
     }
 
-    public Map<String, String> quotaUtilizationList(S3Credential key){
+    public Map<String, Object> quotaUtilizationList(S3Credential key){
         List<SBucket> bucketList = getBuckets(key);
 
-        Map<String, String> quotaUtilizationMap = new HashMap<>();
+        Map<String, Object> quotaUtilizationMap = new HashMap<>();
 
         for(SBucket sBucket : bucketList){
             quotaUtilizationMap.put(sBucket.getBucketName(), quotaUtilizationInfo(sBucket.getBucketName()).get("result"));
